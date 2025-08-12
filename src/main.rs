@@ -21,11 +21,16 @@ fn run_test() {
         } else if char_input == 'h' {
             gb.move_relative(-1);
             gb.print_debug();
+        } else if char_input == 'j' {
+            gb.down();
+        } else if char_input == 'k' {
+            gb.up();
         } else if char_input == 'p' {
             gb.insert("All my fellas");
         } else {
             gb.insert(&char_input.to_string());
         }
+        gb.print_debug();
         gb.print();
     }
 }

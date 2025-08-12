@@ -7,6 +7,9 @@ pub struct GapBuffer {
     r: usize,
     buf: Vec<char>,
     gap_size: usize,
+    col: usize,
+    abs_col: usize,
+    abs_col_flag: bool,
 }
 
 impl GapBuffer {
@@ -22,6 +25,9 @@ impl GapBuffer {
             r: GAP_SIZE - 1,
             buf: gap,
             gap_size: GAP_SIZE,
+            col: 0,
+            abs_col: 0,
+            abs_col_flag: true,
         };
         return buf;
     }
@@ -42,6 +48,7 @@ impl GapBuffer {
     pub fn print_debug(&self) {
         let buf = self.get_buf();
         println!("{:?}", buf);
+        //println!("{}", self.col);
     }
 
     pub fn get_buf(&self) -> Vec<char> {
@@ -54,6 +61,12 @@ impl GapBuffer {
             return;
         }
         while cursor_pos > self.l {
+            if self.buf[self.r+1] == '\n' {
+                self.col = 0;
+            } else {
+                self.col += 1;
+            }
+
             self.buf[self.l] = self.buf[self.r + 1];
             self.buf[self.r + 1] = '\0';
             self.l += 1;
@@ -66,6 +79,12 @@ impl GapBuffer {
             return;
         }
         while cursor_pos < self.l {
+            if self.buf[self.l-1] == '\n' {
+                self.col = self.find_col();
+            } else {
+                self.col -= 1;
+            }
+
             self.buf[self.r] = self.buf[self.l - 1];
             self.buf[self.l - 1] = '\0';
             self.l -= 1;
@@ -73,9 +92,86 @@ impl GapBuffer {
         }
     }
 
+    fn find_col(&mut self) -> usize {
+        let mut i = self.l-2;
+        let mut col: usize = 0;
+        while i != 0 && self.buf[i] != '\n' {
+            i -= 1;
+            col += 1;
+        }
+        if i == 0 {
+            col += 1;
+        }
+        return col;
+    }
+
+    pub fn down(&mut self) {
+        if self.on_last_line() {
+            return;
+        }
+        if self.abs_col_flag {
+            self.abs_col = self.col;
+        }
+        // Move to start of next line
+        self.move_relative(1);
+        while self.buf[self.l-1] != '\n' {
+            self.move_relative(1);
+        }
+        // Right until end of line or abs_col or end of buffer
+        while self.buf[self.r+1] != '\n' && self.col != self.abs_col && self.r != self.buf.len()-1 {
+            self.move_relative(1);
+        }
+        self.abs_col_flag = self.col == self.abs_col;
+    }
+
+    pub fn up(&mut self) {
+        if self.on_first_line() {
+            return;
+        }
+        if self.abs_col_flag {
+            self.abs_col = self.col;
+        }
+        // Move to end of previous line
+        self.move_relative(-1);
+        while self.buf[self.r+1] != '\n' {
+            self.move_relative(-1);
+        }
+        // Dont move if col is less then abs_col
+        // Otherwise left until col == abs_col
+        while self.col > self.abs_col && self.l != 0 {
+            self.move_relative(-1);
+        }
+        self.abs_col_flag = self.col == self.abs_col;
+    }
+
+    fn on_first_line(&mut self) -> bool {
+        let mut i = self.l;
+        while i != 0 {
+            i -= 1;
+            if self.buf[i] == '\n' {
+                return false;
+            }
+        } 
+        return true;
+    }
+
+    fn on_last_line(&mut self) -> bool {
+        let mut i = self.r;
+        while i != self.buf.len()-1 {
+            if self.buf[i] == '\n' {
+                return false;
+            }
+            i += 1;
+        }
+        return true;
+    }
+
     pub fn move_relative(&mut self, distance: i32) {
         if distance.is_negative() {
             let usize_dist = (distance * -1) as usize;
+            if usize_dist > self.l {
+                return;
+            }
             self.move_absolute(self.l - usize_dist);
         } else {
             let usize_dist = distance as usize;
@@ -97,13 +193,15 @@ impl GapBuffer {
         }
         self.buf.splice(self.l..self.l+s.len(), s.chars());
         self.l += s.len();
+        self.col += s.len();
+        self.gap_size -= s.len();
     }
 
     fn resize(&mut self) {
-        let more_gap = vec!['\0'; self.gap_size];
-        self.buf.splice(self.r+1..self.r+1, more_gap);
-        self.r += self.gap_size;
-        self.gap_size = self.gap_size * 2;
+        let more_gap = vec!['\0'; GAP_SIZE];
+        self.buf.splice(self.r..self.r, more_gap);
+        self.r += GAP_SIZE;
+        self.gap_size += GAP_SIZE;
     }
 
     // Inclusive on both ends

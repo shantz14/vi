@@ -1,7 +1,9 @@
 use std::fs;
+use wasm_bindgen::prelude::*;
 
 const GAP_SIZE: usize = 256;
 
+#[wasm_bindgen]
 pub struct GapBuffer {
     l: usize,
     r: usize,
@@ -10,6 +12,116 @@ pub struct GapBuffer {
     col: usize,
     abs_col: usize,
     abs_col_flag: bool,
+}
+
+#[wasm_bindgen]
+impl GapBuffer {
+    #[wasm_bindgen(constructor)]
+    pub fn from_text(text: &str) -> GapBuffer {
+        let mut gap: Vec<char> = vec!['\0'; GAP_SIZE];
+        gap.append(&mut text.chars().collect());
+        let buf = GapBuffer {
+            l: 0,
+            r: GAP_SIZE - 1,
+            buf: gap,
+            gap_size: GAP_SIZE,
+            col: 0,
+            abs_col: 0,
+            abs_col_flag: true,
+        };
+        return buf;
+    }
+
+    #[wasm_bindgen]
+    pub fn get_text(&self) -> String {
+        return self.buf.iter().collect();
+    }
+
+    #[wasm_bindgen]
+    pub fn down(&mut self) {
+        if self.on_last_line() {
+            return;
+        }
+        if self.abs_col_flag {
+            self.abs_col = self.col;
+        }
+        // Move to start of next line
+        self.move_relative(1);
+        while self.buf[self.l-1] != '\n' {
+            self.move_relative(1);
+        }
+        // Right until end of line or abs_col or end of buffer
+        while self.buf[self.r+1] != '\n' && self.col != self.abs_col && self.r != self.buf.len()-1 {
+            self.move_relative(1);
+        }
+        self.abs_col_flag = self.col == self.abs_col;
+    }
+
+    #[wasm_bindgen]
+    pub fn up(&mut self) {
+        if self.on_first_line() {
+            return;
+        }
+        if self.abs_col_flag {
+            self.abs_col = self.col;
+        }
+        // Move to end of previous line
+        self.move_relative(-1);
+        while self.buf[self.r+1] != '\n' {
+            self.move_relative(-1);
+        }
+        // Dont move if col is less then abs_col
+        // Otherwise left until col == abs_col
+        while self.col > self.abs_col && self.l != 0 {
+            self.move_relative(-1);
+        }
+        self.abs_col_flag = self.col == self.abs_col;
+    }
+
+    #[wasm_bindgen]
+    pub fn move_relative(&mut self, distance: i32) {
+        if distance.is_negative() {
+            let usize_dist = (distance * -1) as usize;
+            if usize_dist > self.l {
+                return;
+            }
+            self.move_absolute(self.l - usize_dist);
+        } else {
+            let usize_dist = distance as usize;
+            self.move_absolute(self.l + usize_dist);
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn move_absolute(&mut self, cursor_pos: usize) {
+        if cursor_pos < self.l {
+            self.left(cursor_pos);
+        } else if cursor_pos > self.l {
+            self.right(cursor_pos);
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn insert(&mut self, s: &str) {
+        if s.len() >= self.gap_size {
+            self.resize();
+        }
+        self.buf.splice(self.l..self.l+s.len(), s.chars());
+        self.l += s.len();
+        self.col += s.len();
+        self.gap_size -= s.len();
+    }
+
+    #[wasm_bindgen]
+    pub fn backspace(&mut self) {
+        self.delete(self.l-1, self.l-1);
+    }
+
+    #[wasm_bindgen]
+    pub fn tab(&mut self) {
+        self.insert("    ");
+    }
+
 }
 
 impl GapBuffer {
@@ -105,45 +217,6 @@ impl GapBuffer {
         return col;
     }
 
-    pub fn down(&mut self) {
-        if self.on_last_line() {
-            return;
-        }
-        if self.abs_col_flag {
-            self.abs_col = self.col;
-        }
-        // Move to start of next line
-        self.move_relative(1);
-        while self.buf[self.l-1] != '\n' {
-            self.move_relative(1);
-        }
-        // Right until end of line or abs_col or end of buffer
-        while self.buf[self.r+1] != '\n' && self.col != self.abs_col && self.r != self.buf.len()-1 {
-            self.move_relative(1);
-        }
-        self.abs_col_flag = self.col == self.abs_col;
-    }
-
-    pub fn up(&mut self) {
-        if self.on_first_line() {
-            return;
-        }
-        if self.abs_col_flag {
-            self.abs_col = self.col;
-        }
-        // Move to end of previous line
-        self.move_relative(-1);
-        while self.buf[self.r+1] != '\n' {
-            self.move_relative(-1);
-        }
-        // Dont move if col is less then abs_col
-        // Otherwise left until col == abs_col
-        while self.col > self.abs_col && self.l != 0 {
-            self.move_relative(-1);
-        }
-        self.abs_col_flag = self.col == self.abs_col;
-    }
-
     fn on_first_line(&mut self) -> bool {
         let mut i = self.l;
         while i != 0 {
@@ -166,37 +239,6 @@ impl GapBuffer {
         return true;
     }
 
-    pub fn move_relative(&mut self, distance: i32) {
-        if distance.is_negative() {
-            let usize_dist = (distance * -1) as usize;
-            if usize_dist > self.l {
-                return;
-            }
-            self.move_absolute(self.l - usize_dist);
-        } else {
-            let usize_dist = distance as usize;
-            self.move_absolute(self.l + usize_dist);
-        }
-    }
-
-    pub fn move_absolute(&mut self, cursor_pos: usize) {
-        if cursor_pos < self.l {
-            self.left(cursor_pos);
-        } else if cursor_pos > self.l {
-            self.right(cursor_pos);
-        }
-    }
-
-    pub fn insert(&mut self, s: &str) {
-        if s.len() >= self.gap_size {
-            self.resize();
-        }
-        self.buf.splice(self.l..self.l+s.len(), s.chars());
-        self.l += s.len();
-        self.col += s.len();
-        self.gap_size -= s.len();
-    }
-
     fn resize(&mut self) {
         let more_gap = vec!['\0'; GAP_SIZE];
         self.buf.splice(self.r..self.r, more_gap);
@@ -213,10 +255,6 @@ impl GapBuffer {
         if end > self.r {
             self.r = end;
         }
-    }
-
-    pub fn backspace(&mut self) {
-        self.delete(self.l-1, self.l-1);
     }
 
 }

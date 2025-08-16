@@ -12,7 +12,11 @@ pub struct GapBuffer {
     col: usize,
     abs_col: usize,
     abs_col_flag: bool,
+    mode: Mode,
 }
+
+#[wasm_bindgen]
+pub enum Mode { N = 0, I, V }
 
 #[wasm_bindgen]
 impl GapBuffer {
@@ -20,7 +24,7 @@ impl GapBuffer {
     pub fn from_text(text: &str) -> GapBuffer {
         let mut gap: Vec<char> = vec!['\0'; GAP_SIZE];
         gap.append(&mut text.chars().collect());
-        let buf = GapBuffer {
+        GapBuffer {
             l: 0,
             r: GAP_SIZE - 1,
             buf: gap,
@@ -28,8 +32,23 @@ impl GapBuffer {
             col: 0,
             abs_col: 0,
             abs_col_flag: true,
-        };
-        return buf;
+            mode: Mode::N,
+        }
+    }
+
+    #[wasm_bindgen]
+    pub fn input(&mut self, c: &str) {
+        match self.mode {
+            Mode::N => {
+                self.input_n(c);
+            }
+            Mode::I => {
+                self.input_i(c);
+            }
+            Mode::V => {
+                self.input_v(c);
+            }
+        }
     }
 
     #[wasm_bindgen]
@@ -38,7 +57,13 @@ impl GapBuffer {
     }
 
     #[wasm_bindgen]
-    pub fn down(&mut self) {
+    pub fn get_cursor_pos(&self) -> usize {
+        self.l
+    }
+}
+
+impl GapBuffer {
+    fn down(&mut self) {
         if self.on_last_line() {
             return;
         }
@@ -57,8 +82,7 @@ impl GapBuffer {
         self.abs_col_flag = self.col == self.abs_col;
     }
 
-    #[wasm_bindgen]
-    pub fn up(&mut self) {
+    fn up(&mut self) {
         if self.on_first_line() {
             return;
         }
@@ -78,8 +102,7 @@ impl GapBuffer {
         self.abs_col_flag = self.col == self.abs_col;
     }
 
-    #[wasm_bindgen]
-    pub fn move_relative(&mut self, distance: i32) {
+    fn move_relative(&mut self, distance: i32) {
         if distance.is_negative() {
             let usize_dist = (distance * -1) as usize;
             if usize_dist > self.l {
@@ -92,8 +115,7 @@ impl GapBuffer {
         }
     }
 
-    #[wasm_bindgen]
-    pub fn move_absolute(&mut self, cursor_pos: usize) {
+    fn move_absolute(&mut self, cursor_pos: usize) {
         if cursor_pos < self.l {
             self.left(cursor_pos);
         } else if cursor_pos > self.l {
@@ -101,8 +123,7 @@ impl GapBuffer {
         }
     }
 
-    #[wasm_bindgen]
-    pub fn insert(&mut self, s: &str) {
+    fn insert(&mut self, s: &str) {
         if s.len() >= self.gap_size {
             self.resize();
         }
@@ -112,27 +133,22 @@ impl GapBuffer {
         self.gap_size -= s.len();
     }
 
-    #[wasm_bindgen]
-    pub fn backspace(&mut self) {
+    fn backspace(&mut self) {
         self.delete(self.l-1, self.l-1);
     }
 
-    #[wasm_bindgen]
-    pub fn tab(&mut self) {
+    fn tab(&mut self) {
         self.insert("    ");
     }
 
-}
-
-impl GapBuffer {
-    pub fn from_file(file_name: &str) -> GapBuffer {
+    fn from_file(file_name: &str) -> GapBuffer {
         let mut gap: Vec<char> = vec!['\0'; GAP_SIZE];
         let mut file_contents: Vec<char> = fs::read_to_string(file_name)
             .expect("Failed to read file.")
             .chars()
             .collect();
         gap.append(&mut file_contents);
-        let buf = GapBuffer {
+        GapBuffer {
             l: 0,
             r: GAP_SIZE - 1,
             buf: gap,
@@ -140,11 +156,45 @@ impl GapBuffer {
             col: 0,
             abs_col: 0,
             abs_col_flag: true,
-        };
-        return buf;
+            mode: Mode::N,
+        }
     }
 
-    pub fn print(&self) {
+    fn input_n(&mut self, c: &str) {
+        match c {
+            "h" => self.move_relative(-1),
+            "l" => self.move_relative(1),
+            "j" => self.down(),
+            "k" => self.up(),
+            "i" => self.mode = Mode::I,
+            "a" => {
+                self.move_relative(1);
+                self.mode = Mode::I;
+            }
+            _ => {
+                //mmmm
+            }
+        }
+    }
+
+    fn input_i(&mut self, c: &str) {
+        match c {
+            "Escape" => self.mode = Mode::N,
+            "Backspace" => self.backspace(),
+            "Tab" => self.tab(),
+            "Enter" => self.enter(),
+            "Shift" => {},
+            _ => {
+                self.insert(&c.to_string());
+            }
+        }
+    }
+
+    fn input_v(&mut self, _c: &str) {
+
+    }
+
+    fn print(&self) {
         let mut cursor_found = false;
         for c in self.buf.iter() {
             if *c == '\0' && cursor_found == false {
@@ -157,13 +207,13 @@ impl GapBuffer {
         }
     }
 
-    pub fn print_debug(&self) {
+    fn print_debug(&self) {
         let buf = self.get_buf();
         println!("{:?}", buf);
         //println!("{}", self.col);
     }
 
-    pub fn get_buf(&self) -> Vec<char> {
+    fn get_buf(&self) -> Vec<char> {
         let buf = self.buf.clone();
         return buf;
     }
@@ -247,7 +297,7 @@ impl GapBuffer {
     }
 
     // Inclusive on both ends
-    pub fn delete(&mut self, start: usize, end: usize) {
+    fn delete(&mut self, start: usize, end: usize) {
         self.buf.splice(start..=end, vec!['\0'; end-start+1]);
         if start < self.l {
             self.l = start;
@@ -255,6 +305,10 @@ impl GapBuffer {
         if end > self.r {
             self.r = end;
         }
+    }
+
+    fn enter(&mut self) {
+        self.insert("\n");
     }
 
 }

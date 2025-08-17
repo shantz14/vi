@@ -1,6 +1,8 @@
 use std::fs;
 use wasm_bindgen::prelude::*;
 
+extern crate web_sys;
+
 const GAP_SIZE: usize = 256;
 
 #[wasm_bindgen]
@@ -53,7 +55,7 @@ impl GapBuffer {
 
     #[wasm_bindgen]
     pub fn get_text(&self) -> String {
-        return self.buf.iter().collect();
+        self.buf.iter().collect()
     }
 
     #[wasm_bindgen]
@@ -76,7 +78,7 @@ impl GapBuffer {
             self.move_relative(1);
         }
         // Right until end of line or abs_col or end of buffer
-        while self.buf[self.r+1] != '\n' && self.col != self.abs_col && self.r != self.buf.len()-1 {
+        while self.r != self.buf.len()-1 && self.buf[self.r+1] != '\n' && self.col != self.abs_col {
             self.move_relative(1);
         }
         self.abs_col_flag = self.col == self.abs_col;
@@ -96,7 +98,7 @@ impl GapBuffer {
         }
         // Dont move if col is less then abs_col
         // Otherwise left until col == abs_col
-        while self.col > self.abs_col && self.l != 0 {
+        while self.col > self.abs_col && self.l > 0 {
             self.move_relative(-1);
         }
         self.abs_col_flag = self.col == self.abs_col;
@@ -131,6 +133,18 @@ impl GapBuffer {
         self.l += s.len();
         self.col += s.len();
         self.gap_size -= s.len();
+    }
+
+    fn end_of_line(&mut self) {
+        while self.r < self.buf.len()-1 && self.buf[self.r+1] != '\n' {
+            self.move_relative(1);
+        }
+    }
+
+    fn start_of_line(&mut self) {
+        while self.l > 0 && self.buf[self.l-1] != '\n' {
+            self.move_relative(-1);
+        }
     }
 
     fn backspace(&mut self) {
@@ -171,6 +185,10 @@ impl GapBuffer {
                 self.move_relative(1);
                 self.mode = Mode::I;
             }
+            "o" => self.n_o(),
+            "O" => self.n_O(),
+            "$" => self.end_of_line(),
+            "0" => self.start_of_line(),
             _ => {
                 //mmmm
             }
@@ -254,14 +272,12 @@ impl GapBuffer {
         }
     }
 
+    // TODO: FIX
     fn find_col(&mut self) -> usize {
-        let mut i = self.l-2;
+        let mut i = self.l-1;
         let mut col: usize = 0;
-        while i != 0 && self.buf[i] != '\n' {
+        while i > 0 && self.buf[i] != '\n' {
             i -= 1;
-            col += 1;
-        }
-        if i == 0 {
             col += 1;
         }
         return col;
@@ -309,6 +325,26 @@ impl GapBuffer {
 
     fn enter(&mut self) {
         self.insert("\n");
+    }
+
+    fn n_o(&mut self) {
+        self.end_of_line();
+        self.mode = Mode::I;
+        self.insert("\n");
+    }
+
+    fn n_O(&mut self) {
+        if self.on_first_line() {
+            self.start_of_line();
+            self.insert("\n");
+            self.up();
+            self.mode = Mode::I;
+        } else {
+            self.up();
+            self.end_of_line();
+            self.insert("\n");
+            self.mode = Mode::I;
+        }
     }
 
 }

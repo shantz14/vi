@@ -1,9 +1,12 @@
+#![allow(non_snake_case)]
 use std::fs;
 use wasm_bindgen::prelude::*;
 
 extern crate web_sys;
 
 const GAP_SIZE: usize = 256;
+
+const WORD_DELIMS: &[char] = &['.', '(', ':', ','];
 
 #[wasm_bindgen]
 pub struct GapBuffer {
@@ -131,8 +134,8 @@ impl GapBuffer {
         }
         self.buf.splice(self.l..self.l+s.len(), s.chars());
         self.l += s.len();
-        self.col += s.len();
         self.gap_size -= s.len();
+        self.col = self.find_col();
     }
 
     fn end_of_line(&mut self) {
@@ -189,10 +192,18 @@ impl GapBuffer {
             "O" => self.n_O(),
             "$" => self.end_of_line(),
             "0" => self.start_of_line(),
+            "w" => self.n_w(),
+            "b" => self.n_b(),
+            "W" => self.n_W(),
+            "B" => self.n_B(),
             _ => {
                 //mmmm
             }
         }
+        web_sys::console::log_1(&"Col: ".into());
+        web_sys::console::log_1(&self.col.to_string().into());
+        web_sys::console::log_1(&"Abs_Col: ".into());
+        web_sys::console::log_1(&self.abs_col.to_string().into());
     }
 
     fn input_i(&mut self, c: &str) {
@@ -241,16 +252,16 @@ impl GapBuffer {
             return;
         }
         while cursor_pos > self.l {
-            if self.buf[self.r+1] == '\n' {
-                self.col = 0;
-            } else {
-                self.col += 1;
-            }
-
             self.buf[self.l] = self.buf[self.r + 1];
             self.buf[self.r + 1] = '\0';
             self.l += 1;
             self.r += 1;
+
+            if self.buf[self.l-1] == '\n' {
+                self.col = 0;
+            } else {
+                self.col += 1;
+            }
         }
     }
 
@@ -259,24 +270,25 @@ impl GapBuffer {
             return;
         }
         while cursor_pos < self.l {
-            if self.buf[self.l-1] == '\n' {
-                self.col = self.find_col();
-            } else {
-                self.col -= 1;
-            }
-
             self.buf[self.r] = self.buf[self.l - 1];
             self.buf[self.l - 1] = '\0';
             self.l -= 1;
             self.r -= 1;
+
+            if self.buf[self.r+1] == '\n' {
+                self.col = self.find_col();
+            } else {
+                self.col -= 1;
+            }
         }
     }
 
     // TODO: FIX
     fn find_col(&mut self) -> usize {
-        let mut i = self.l-1;
+        assert!(self.l <= self.buf.len(), "self.l={} buf.len()={}", self.l, self.buf.len());
+        let mut i = self.l;
         let mut col: usize = 0;
-        while i > 0 && self.buf[i] != '\n' {
+        while i > 0 && self.buf[i-1] != '\n' {
             i -= 1;
             col += 1;
         }
@@ -347,5 +359,33 @@ impl GapBuffer {
         }
     }
 
+    fn n_w(&mut self) {
+
+    }
+
+    fn n_b(&mut self) {
+
+    }
+
+    fn n_W(&mut self) {
+        while self.r != self.buf.len()-2 && self.buf[self.r+1] != ' ' {
+            self.move_relative(1);
+        }
+        while self.r != self.buf.len()-2 && self.buf[self.r+1] == ' ' {
+            self.move_relative(1);
+        }
+    }
+
+    fn n_B(&mut self) {
+        while self.l != 0 && self.buf[self.l-1] != ' ' {
+            self.move_relative(-1);
+        }
+        while self.l != 0 && self.buf[self.l-1] == ' ' {
+            self.move_relative(-1);
+        }
+        while self.l != 0 && self.buf[self.l-1] != ' ' {
+            self.move_relative(-1);
+        }
+    }
 }
 

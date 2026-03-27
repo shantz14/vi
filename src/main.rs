@@ -1,15 +1,19 @@
 #![allow(non_snake_case)]
-use std::fs;
-use wasm_bindgen::prelude::*;
 
-extern crate web_sys;
+use std::{env, io};
+use std::io::{Write, stdout};
+use std::fs;
+use std::thread;
+use std::time::Duration;
+
+use crossterm::style::Print;
+use crossterm::{event, cursor, execute, terminal::{ClearType, Clear, enable_raw_mode, disable_raw_mode}};
 
 const GAP_SIZE: usize = 256;
 
 const WORD_DELIMS: &[char] = &['.', '(', ':', ','];
 
-#[wasm_bindgen]
-pub struct GapBuffer {
+struct GapBuffer {
     l: usize,
     r: usize,
     buf: Vec<char>,
@@ -20,12 +24,57 @@ pub struct GapBuffer {
     mode: Mode,
 }
 
-#[wasm_bindgen]
-pub enum Mode { N = 0, I, V }
+enum Mode { N = 0, I, V }
 
-#[wasm_bindgen]
+fn main() -> io::Result<()> {
+    init_terminal()?;
+
+    let args: Vec<String> = env::args().collect();
+    if args.len() == 1 {
+        open_homepage();
+    } else if args.len() == 2 {
+        load_buf_from_filename(&args[1])?;
+    } else {
+        println!("Error: Only 1 argument(file name) is supported");
+        close()?;
+        return Ok(());
+    }
+
+    let open_buffer = GapBuffer::from_text("Hello World.\nThis is some test text...");
+    execute!(stdout(), Print(open_buffer.get_text()))?;
+
+    thread::sleep(Duration::from_secs(4));
+
+    close()?;
+    return Ok(())
+}
+
+fn init_terminal() -> io::Result<()> {
+    enable_raw_mode()?;
+    execute!(
+        io::stdout(),
+        Clear(ClearType::All),
+        cursor::MoveTo(0, 0)
+    )?;
+
+    Ok(())
+}
+
+fn close() -> io::Result<()> {
+    disable_raw_mode()
+}
+
+fn load_buf_from_filename(filename: &str) -> io::Result<()> {
+    // TODO
+
+    Ok(())
+}
+
+fn open_homepage() {
+
+}
+
 impl GapBuffer {
-    #[wasm_bindgen(constructor)]
     pub fn from_text(text: &str) -> GapBuffer {
         let mut gap: Vec<char> = vec!['\0'; GAP_SIZE];
         gap.append(&mut text.chars().collect());
@@ -41,7 +90,6 @@ impl GapBuffer {
         }
     }
 
-    #[wasm_bindgen]
     pub fn input(&mut self, c: &str) {
         match self.mode {
             Mode::N => {
@@ -56,12 +104,10 @@ impl GapBuffer {
         }
     }
 
-    #[wasm_bindgen]
     pub fn get_text(&self) -> String {
         self.buf.iter().collect()
     }
 
-    #[wasm_bindgen]
     pub fn get_cursor_pos(&self) -> usize {
         self.l
     }
@@ -200,10 +246,6 @@ impl GapBuffer {
                 //mmmm
             }
         }
-        web_sys::console::log_1(&"Col: ".into());
-        web_sys::console::log_1(&self.col.to_string().into());
-        web_sys::console::log_1(&"Abs_Col: ".into());
-        web_sys::console::log_1(&self.abs_col.to_string().into());
     }
 
     fn input_i(&mut self, c: &str) {

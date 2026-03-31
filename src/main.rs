@@ -7,7 +7,9 @@ use std::thread;
 use std::time::Duration;
 
 use crossterm::style::Print;
-use crossterm::{event, cursor, execute, terminal::{ClearType, Clear, enable_raw_mode, disable_raw_mode}};
+use crossterm::terminal;
+use crossterm::{event::{read, Event}, cursor, execute, terminal::{ClearType, Clear, enable_raw_mode, disable_raw_mode}};
+use crossterm::event::{self, KeyCode, KeyEvent};
 
 const GAP_SIZE: usize = 256;
 
@@ -18,13 +20,14 @@ struct GapBuffer {
     r: usize,
     buf: Vec<char>,
     gap_size: usize,
+    row: usize,
     col: usize,
     abs_col: usize,
     abs_col_flag: bool,
     mode: Mode,
 }
 
-enum Mode { N = 0, I, V }
+enum Mode { N = 0, I, V, C }
 
 fn main() -> io::Result<()> {
     init_terminal()?;
@@ -40,27 +43,66 @@ fn main() -> io::Result<()> {
         return Ok(());
     }
 
-    let open_buffer = GapBuffer::from_text("Hello World.\nThis is some test text...");
+    let mut open_buffer = GapBuffer::from_text("Hello World.\r\nThis is some test text...\r\nOKOKOk");
     execute!(stdout(), Print(open_buffer.get_text()))?;
 
-    thread::sleep(Duration::from_secs(4));
+    loop {
+        match read()? {
+            Event::Key(event) => {
+                let input = handleKeyEvent(event);
+                open_buffer.input(&input);
+            },
+            _ => {}
+        }
 
-    close()?;
-    return Ok(())
+        let (row, col) = open_buffer.get_cursor_pos();
+        execute!(stdout(),
+            Clear(ClearType::All),
+            cursor::MoveTo(0, 0),
+            Print(open_buffer.get_text()),
+            cursor::MoveTo(col.try_into().unwrap(), row.try_into().unwrap())
+        )?;
+    }
+}
+
+fn handleKeyEvent(e: KeyEvent) -> String {
+    match e.code {
+        KeyCode::Char(c) => c.to_string(),
+        KeyCode::Backspace => "Backspace".to_string(),
+        KeyCode::Enter => "Enter".to_string(),
+        KeyCode::Left => "Left".to_string(),
+        KeyCode::Right => "Right".to_string(),
+        KeyCode::Up => "Up".to_string(),
+        KeyCode::Down => "Down".to_string(),
+        KeyCode::Tab => "Tab".to_string(),
+        KeyCode::Esc => "Escape".to_string(),
+        _ => "Other".to_string()
+    }
 }
 
 fn init_terminal() -> io::Result<()> {
     enable_raw_mode()?;
     execute!(
         io::stdout(),
-        Clear(ClearType::All),
-        cursor::MoveTo(0, 0)
+        terminal::EnterAlternateScreen,
+        event::EnableBracketedPaste,
+        event::EnableFocusChange,
+        event::EnableMouseCapture,
+        cursor::Show,
+        cursor::MoveTo(0, 0),
     )?;
 
     Ok(())
 }
 
 fn close() -> io::Result<()> {
+    execute!(
+        io::stdout(),
+        event::DisableBracketedPaste,
+        event::DisableFocusChange,
+        event::DisableMouseCapture,
+        terminal::LeaveAlternateScreen
+    )?;
     disable_raw_mode()
 }
 
@@ -83,6 +125,7 @@ impl GapBuffer {
             r: GAP_SIZE - 1,
             buf: gap,
             gap_size: GAP_SIZE,
+            row: 0,
             col: 0,
             abs_col: 0,
             abs_col_flag: true,
@@ -101,6 +144,9 @@ impl GapBuffer {
             Mode::V => {
                 self.input_v(c);
             }
+            Mode::C => {
+                self.input_c(c);
+            }
         }
     }
 
@@ -108,8 +154,8 @@ impl GapBuffer {
         self.buf.iter().collect()
     }
 
-    pub fn get_cursor_pos(&self) -> usize {
-        self.l
+    pub fn get_cursor_pos(&self) -> (usize, usize) {
+        (self.get_row(), self.get_col())
     }
 }
 
@@ -216,6 +262,7 @@ impl GapBuffer {
             r: GAP_SIZE - 1,
             buf: gap,
             gap_size: GAP_SIZE,
+            row: 0,
             col: 0,
             abs_col: 0,
             abs_col_flag: true,
@@ -242,6 +289,7 @@ impl GapBuffer {
             "b" => self.n_b(),
             "W" => self.n_W(),
             "B" => self.n_B(),
+            ":" => self.n_colon(),
             _ => {
                 //mmmm
             }
@@ -263,6 +311,18 @@ impl GapBuffer {
 
     fn input_v(&mut self, _c: &str) {
 
+    }
+
+    fn input_c(&mut self, c: &str) {
+        match c {
+            "q" => {
+                let _ = close();
+                std::process::exit(0);
+            },
+            _ => {
+                //mmmm
+            }
+        }
     }
 
     fn print(&self) {
@@ -300,6 +360,7 @@ impl GapBuffer {
             self.r += 1;
 
             if self.buf[self.l-1] == '\n' {
+                self.row += 1;
                 self.col = 0;
             } else {
                 self.col += 1;
@@ -318,6 +379,7 @@ impl GapBuffer {
             self.r -= 1;
 
             if self.buf[self.r+1] == '\n' {
+                self.row -= 1;
                 self.col = self.find_col();
             } else {
                 self.col -= 1;
@@ -325,8 +387,16 @@ impl GapBuffer {
         }
     }
 
+    fn get_row(&self) -> usize {
+        self.row
+    }
+
+    fn get_col(&self) -> usize {
+        self.col
+    }
+
     // TODO: FIX
-    fn find_col(&mut self) -> usize {
+    fn find_col(&self) -> usize {
         assert!(self.l <= self.buf.len(), "self.l={} buf.len()={}", self.l, self.buf.len());
         let mut i = self.l;
         let mut col: usize = 0;
@@ -428,6 +498,10 @@ impl GapBuffer {
         while self.l != 0 && self.buf[self.l-1] != ' ' {
             self.move_relative(-1);
         }
+    }
+
+    fn n_colon(&mut self) {
+        self.mode = Mode::C;
     }
 }
 

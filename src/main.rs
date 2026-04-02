@@ -1,45 +1,44 @@
-use std::{env, io};
-use std::io::{stdout};
+use std::env;
+use std::io::{self, stdout};
 
 use crossterm::style::Print;
-use crossterm::terminal;
-use crossterm::{event::{read, Event}, cursor, execute, terminal::{ClearType, Clear, enable_raw_mode, disable_raw_mode}};
-use crossterm::event::{self, KeyCode, KeyEvent};
+use crossterm::{event::{self, read, Event, KeyCode, KeyEvent}, cursor, execute, terminal::{self, ClearType, Clear, enable_raw_mode, disable_raw_mode}};
 
-mod gap_buffer;
-use crate::gap_buffer::GapBuffer;
+mod buffer;
+use crate::buffer::Buffer;
 
 fn main() -> io::Result<()> {
     init_terminal()?;
 
+    let mut open_buf: Buffer;
+
     let args: Vec<String> = env::args().collect();
     if args.len() == 1 {
-        open_homepage();
+        open_buf = open_homepage();
     } else if args.len() == 2 {
-        load_buf_from_filename(&args[1])?;
+        open_buf = Buffer::load_buf_from_filename(&args[1])?;
     } else {
         println!("Error: Only 1 argument(file name) is supported");
         close()?;
         return Ok(());
     }
 
-    let mut open_buffer = GapBuffer::from_text("Hello World.\r\nThis is some test text...\r\nOKOKOk");
-    execute!(stdout(), Print(open_buffer.get_text()))?;
+    execute!(stdout(), Print(open_buf.gb.get_text()))?;
 
     loop {
         match read()? {
             Event::Key(event) => {
                 let input = handle_key_event(event);
-                open_buffer.input(&input);
+                open_buf.input(&input);
             },
             _ => {}
         }
 
-        let (row, col) = open_buffer.get_cursor_pos();
+        let (row, col) = open_buf.gb.get_cursor_pos();
         execute!(stdout(),
             Clear(ClearType::All),
             cursor::MoveTo(0, 0),
-            Print(open_buffer.get_text()),
+            Print(open_buf.gb.get_text()),
             cursor::MoveTo(col.try_into().unwrap(), row.try_into().unwrap())
         )?;
     }
@@ -86,12 +85,13 @@ fn close() -> io::Result<()> {
     disable_raw_mode()
 }
 
-fn load_buf_from_filename(filename: &str) -> io::Result<()> {
-    // TODO
-    Ok(())
-}
-
-fn open_homepage() {
-
+fn open_homepage() -> Buffer {
+    // return Buffer {
+    //     name: "homepage".to_string(),
+    //     gb: GapBuffer::from_text("This is the homepage"),
+    //     mode: buffer::Mode::N,
+    //     cmd: "".to_string(),
+    // }
+    !unimplemented!();
 }
 

@@ -1,10 +1,4 @@
-#![allow(non_snake_case)]
-
-use std::fs;
-
-// TODO this is a weird interdependency.  Should some sort of signal be sent
-// that is read above the level of the GapBuffer?
-use crate::close;
+use std::fs::{self, File};
 
 const GAP_SIZE: usize = 256;
 
@@ -19,10 +13,7 @@ pub struct GapBuffer {
     col: usize,
     abs_col: usize,
     abs_col_flag: bool,
-    mode: Mode,
 }
-
-enum Mode { N = 0, I, V, C }
 
 impl GapBuffer {
     pub fn from_text(text: &str) -> GapBuffer {
@@ -37,24 +28,6 @@ impl GapBuffer {
             col: 0,
             abs_col: 0,
             abs_col_flag: true,
-            mode: Mode::N,
-        }
-    }
-
-    pub fn input(&mut self, c: &str) {
-        match self.mode {
-            Mode::N => {
-                self.input_n(c);
-            }
-            Mode::I => {
-                self.input_i(c);
-            }
-            Mode::V => {
-                self.input_v(c);
-            }
-            Mode::C => {
-                self.input_c(c);
-            }
         }
     }
 
@@ -107,7 +80,7 @@ impl GapBuffer {
         self.abs_col_flag = self.col == self.abs_col;
     }
 
-    fn move_relative(&mut self, distance: i32) {
+    pub fn move_relative(&mut self, distance: i32) {
         if distance.is_negative() {
             let usize_dist = (distance * -1) as usize;
             if usize_dist > self.l {
@@ -128,7 +101,7 @@ impl GapBuffer {
         }
     }
 
-    fn insert(&mut self, s: &str) {
+    pub fn insert(&mut self, s: &str) {
         if s.len() >= self.gap_size {
             self.resize();
         }
@@ -150,15 +123,15 @@ impl GapBuffer {
         }
     }
 
-    fn backspace(&mut self) {
+    pub fn backspace(&mut self) {
         self.delete(self.l-1, self.l-1);
     }
 
-    fn tab(&mut self) {
+    pub fn tab(&mut self) {
         self.insert("    ");
     }
 
-    fn from_file(file_name: &str) -> GapBuffer {
+    pub fn from_file(file_name: &str) -> GapBuffer {
         let mut gap: Vec<char> = vec!['\0'; GAP_SIZE];
         let mut file_contents: Vec<char> = fs::read_to_string(file_name)
             .expect("Failed to read file.")
@@ -174,62 +147,6 @@ impl GapBuffer {
             col: 0,
             abs_col: 0,
             abs_col_flag: true,
-            mode: Mode::N,
-        }
-    }
-
-    fn input_n(&mut self, c: &str) {
-        match c {
-            "h" => self.move_relative(-1),
-            "l" => self.move_relative(1),
-            "j" => self.down(),
-            "k" => self.up(),
-            "i" => self.mode = Mode::I,
-            "a" => {
-                self.move_relative(1);
-                self.mode = Mode::I;
-            }
-            "o" => self.n_o(),
-            "O" => self.n_O(),
-            "$" => self.end_of_line(),
-            "0" => self.start_of_line(),
-            "w" => self.n_w(),
-            "b" => self.n_b(),
-            "W" => self.n_W(),
-            "B" => self.n_B(),
-            ":" => self.n_colon(),
-            _ => {
-                //mmmm
-            }
-        }
-    }
-
-    fn input_i(&mut self, c: &str) {
-        match c {
-            "Escape" => self.mode = Mode::N,
-            "Backspace" => self.backspace(),
-            "Tab" => self.tab(),
-            "Enter" => self.enter(),
-            "Shift" => {},
-            _ => {
-                self.insert(&c.to_string());
-            }
-        }
-    }
-
-    fn input_v(&mut self, _c: &str) {
-
-    }
-
-    fn input_c(&mut self, c: &str) {
-        match c {
-            "q" => {
-                let _ = close();
-                std::process::exit(0);
-            },
-            _ => {
-                //mmmm
-            }
         }
     }
 
@@ -355,39 +272,36 @@ impl GapBuffer {
         }
     }
 
-    fn enter(&mut self) {
+    pub fn enter(&mut self) {
         self.insert("\n");
     }
 
-    fn n_o(&mut self) {
+    pub fn n_o(&mut self) {
         self.end_of_line();
-        self.mode = Mode::I;
         self.insert("\n");
     }
 
-    fn n_O(&mut self) {
+    pub fn n_O(&mut self) {
         if self.on_first_line() {
             self.start_of_line();
             self.insert("\n");
             self.up();
-            self.mode = Mode::I;
         } else {
             self.up();
             self.end_of_line();
             self.insert("\n");
-            self.mode = Mode::I;
         }
     }
 
-    fn n_w(&mut self) {
+    pub fn n_w(&mut self) {
 
     }
 
-    fn n_b(&mut self) {
+    pub fn n_b(&mut self) {
 
     }
 
-    fn n_W(&mut self) {
+    pub fn n_W(&mut self) {
         while self.r != self.buf.len()-2 && self.buf[self.r+1] != ' ' {
             self.move_relative(1);
         }
@@ -396,7 +310,7 @@ impl GapBuffer {
         }
     }
 
-    fn n_B(&mut self) {
+    pub fn n_B(&mut self) {
         while self.l != 0 && self.buf[self.l-1] != ' ' {
             self.move_relative(-1);
         }
@@ -408,8 +322,32 @@ impl GapBuffer {
         }
     }
 
-    fn n_colon(&mut self) {
-        self.mode = Mode::C;
+    pub fn n_h(&mut self) {
+        self.move_relative(-1);
+    }
+
+    pub fn n_l(&mut self) {
+        self.move_relative(1);
+    }
+
+    pub fn n_j(&mut self) {
+        self.down();
+    }
+
+    pub fn n_k(&mut self) {
+        self.up();
+    }
+
+    pub fn n_a(&mut self) {
+        self.move_relative(1);
+    }
+
+    pub fn n_dolla(&mut self) {
+        self.end_of_line();
+    }
+
+    pub fn n_0(&mut self) {
+        self.start_of_line();
     }
 }
 

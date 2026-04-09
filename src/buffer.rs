@@ -1,7 +1,7 @@
 #![allow(non_snake_case)]
 
 mod gap_buffer;
-use std::{fs::{self, File}, io::{Error, ErrorKind}};
+use std::{fs::{self, File}, io::{self, Error, ErrorKind}};
 
 use crate::buffer::gap_buffer::GapBuffer;
 
@@ -163,10 +163,14 @@ impl Buffer {
     fn write(&self, filename: Option<&str>) {
         match filename {
             None => {
-                fs::write(&self.name, self.gb.get_text());
+                if let Err(e) = fs::write(&self.name, self.gb.get_text()) {
+                    eprintln!("failed to write file: {e}");
+                }
             },
             Some(filename) => {
-                fs::write(filename, self.gb.get_text());
+                if let Err(e) = fs::write(filename, self.gb.get_text()) {
+                    eprintln!("failed to write file: {e}");
+                }
             }
         }
     }

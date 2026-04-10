@@ -32,7 +32,15 @@ impl GapBuffer {
     }
 
     pub fn get_text(&self) -> String {
-        self.buf.iter().collect()
+        let mut out = String::new();
+        self.buf.iter().for_each(|c| {
+            if *c == '\n' {
+                out.push_str("\r\n");
+            } else {
+                out.push(*c);
+            }
+        });
+        return out;
     }
 
     pub fn get_cursor_pos(&self) -> (usize, usize) {

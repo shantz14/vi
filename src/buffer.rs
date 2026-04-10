@@ -3,7 +3,7 @@
 mod gap_buffer;
 use std::{fs::{self, File}, io::{Error, ErrorKind}};
 
-use crate::{buffer::gap_buffer::GapBuffer, log_debug, log_error};
+use crate::{buffer::gap_buffer::GapBuffer, log_debug, log_error, log_info};
 
 pub enum Mode { N = 0, I, V, C }
 
@@ -21,11 +21,12 @@ impl Buffer {
         match File::open(filename) {
             Ok(_file) => {
                 // New buffer from the found file
+                log_info!("Opening file {}", filename);
                 return Ok(Buffer {
                     name: filename.to_string(),
                     // Problem i open the file twice maybe idk maybe pass the
                     // file ptr
-                    gb: GapBuffer::from_file(filename),
+                    gb: GapBuffer::from_filename(filename),
                     mode: Mode::N,
                     cmd: "".to_string(),
                 });
@@ -33,6 +34,7 @@ impl Buffer {
             Err(error) => {
                 if error.kind() == ErrorKind::NotFound {
                     // New buffer with name of filename
+                    log_info!("{} not found. Opening new buffer", filename);
                     return Ok(Buffer {
                         name: filename.to_string(),
                         gb: GapBuffer::from_text(""),
@@ -41,6 +43,7 @@ impl Buffer {
                     });
                 } else {
                     // Error opening file that does exist? Throw?
+                    log_error!("Error opening found file {}: {}", filename, error);
                     return Err(error);
                 }
             }
@@ -176,3 +179,19 @@ impl Buffer {
     }
 
 }
+
+pub fn open_homepage() -> Buffer {
+    let homepage = "
+
+                    VI
+    :e [filename] to open a new buffer
+
+    ";
+    return Buffer {
+        name: "homepage".to_string(),
+        gb: GapBuffer::from_text(homepage),
+        mode: Mode::N,
+        cmd: "".to_string(),
+    }
+}
+

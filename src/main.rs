@@ -1,4 +1,4 @@
-use std::{env, fs};
+use std::{env};
 use std::io::{self, stdout};
 use std::sync::OnceLock;
 
@@ -20,14 +20,9 @@ fn main() -> io::Result<()> {
 
     let args: Vec<String> = env::args().collect();
     if args.len() == 1 {
-        open_buf = open_homepage();
+        let _ = LOGGER.set(Logger {level: LogLevel::WARN});
+        open_buf = buffer::open_homepage();
     } else {
-        // handle filename
-        if args[1].chars().nth(0).unwrap() != '-' {
-            open_buf = Buffer::load_buf_from_filename(&args[1])?;
-        } else {
-            open_buf = open_homepage();
-        }
         // handle flags
         args[1..].iter().for_each(|arg| {
             if arg.chars().nth(0).unwrap() == '-' {
@@ -45,18 +40,26 @@ fn main() -> io::Result<()> {
                 }
             }
         });
+
+        // Init logger
+        let _ = match verbosity {
+            0 => LOGGER.set(Logger {level: LogLevel::WARN}),
+            1 => LOGGER.set(Logger {level: LogLevel::INFO}),
+            2 => LOGGER.set(Logger {level: LogLevel::DEBUG}),
+            _ => {
+                close()?;
+                panic!("invalid verbosity");
+            }
+        };
+
+        // handle filename
+        if args[1].chars().nth(0).unwrap() != '-' {
+            open_buf = Buffer::load_buf_from_filename(&args[1])?;
+        } else {
+            open_buf = buffer::open_homepage();
+        }
     }
 
-    // Init logger
-    let _ = match verbosity {
-        0 => LOGGER.set(Logger {level: LogLevel::WARN}),
-        1 => LOGGER.set(Logger {level: LogLevel::INFO}),
-        2 => LOGGER.set(Logger {level: LogLevel::DEBUG}),
-        _ => {
-            close()?;
-            panic!("invalid verbosity");
-        }
-    };
 
     execute!(stdout(), Print(open_buf.gb.get_text()))?;
 
@@ -118,15 +121,5 @@ fn close() -> io::Result<()> {
         terminal::LeaveAlternateScreen
     )?;
     disable_raw_mode()
-}
-
-fn open_homepage() -> Buffer {
-    // return Buffer {
-    //     name: "homepage".to_string(),
-    //     gb: GapBuffer::from_text("This is the homepage"),
-    //     mode: buffer::Mode::N,
-    //     cmd: "".to_string(),
-    // }
-    !unimplemented!();
 }
 

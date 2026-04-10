@@ -1,4 +1,4 @@
-use std::fs::{self, File};
+use std::fs::{self};
 
 const GAP_SIZE: usize = 256;
 
@@ -117,6 +117,8 @@ impl GapBuffer {
         self.l += s.len();
         self.gap_size -= s.len();
         self.col = self.find_col();
+        // TODO this is slow
+        self.row += s.matches('\n').count();
     }
 
     fn end_of_line(&mut self) {
@@ -133,13 +135,14 @@ impl GapBuffer {
 
     pub fn backspace(&mut self) {
         self.delete(self.l-1, self.l-1);
+        self.col -= 1;
     }
 
     pub fn tab(&mut self) {
         self.insert("    ");
     }
 
-    pub fn from_file(file_name: &str) -> GapBuffer {
+    pub fn from_filename(file_name: &str) -> GapBuffer {
         let mut gap: Vec<char> = vec!['\0'; GAP_SIZE];
         let mut file_contents: Vec<char> = fs::read_to_string(file_name)
             .expect("Failed to read file.")

@@ -1,9 +1,9 @@
 #![allow(non_snake_case)]
 
 mod gap_buffer;
-use std::{fs::{self, File}, io::{self, Error, ErrorKind}};
+use std::{fs::{self, File}, io::{Error, ErrorKind}};
 
-use crate::buffer::gap_buffer::GapBuffer;
+use crate::{buffer::gap_buffer::GapBuffer, log_debug, log_error};
 
 pub enum Mode { N = 0, I, V, C }
 
@@ -62,6 +62,8 @@ impl Buffer {
                 self.input_c(c);
             }
         }
+
+        log_debug!("Row: {} Col: {}", self.gb.get_row(), self.gb.get_col());
     }
 
     fn input_n(&mut self, c: &str) {
@@ -143,7 +145,6 @@ impl Buffer {
             "w" | "write" => {
                 self.write(arg1);
                 self.mode = Mode::N;
-                self.cmd.clear();
             },
             "q" | "quit" => {
                 let _ = crate::close();
@@ -151,25 +152,24 @@ impl Buffer {
             },
             "Escape" => {
                 self.mode = Mode::N;
-                self.cmd.clear();
             },
             _ => {
                 //nothin
-                self.cmd.clear();
             }
         }
+        self.cmd.clear();
     }
 
     fn write(&self, filename: Option<&str>) {
         match filename {
             None => {
                 if let Err(e) = fs::write(&self.name, self.gb.get_text()) {
-                    eprintln!("failed to write file: {e}");
+                    log_error!("failed to write buffer to file: {}", e);
                 }
             },
             Some(filename) => {
                 if let Err(e) = fs::write(filename, self.gb.get_text()) {
-                    eprintln!("failed to write file: {e}");
+                    log_error!("failed to write buffer to file: {}", e);
                 }
             }
         }

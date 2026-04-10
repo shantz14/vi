@@ -1,27 +1,62 @@
-use std::env;
+use std::{env, fs};
 use std::io::{self, stdout};
+use std::sync::OnceLock;
 
 use crossterm::style::Print;
 use crossterm::{event::{self, read, Event, KeyCode, KeyEvent}, cursor, execute, terminal::{self, ClearType, Clear, enable_raw_mode, disable_raw_mode}};
 
 mod buffer;
 use crate::buffer::Buffer;
+mod logger;
+use crate::logger::{LogLevel, Logger};
+
+static LOGGER: OnceLock<Logger> = OnceLock::new();
 
 fn main() -> io::Result<()> {
     init_terminal()?;
 
     let mut open_buf: Buffer;
+    let mut verbosity = 0;
 
     let args: Vec<String> = env::args().collect();
     if args.len() == 1 {
         open_buf = open_homepage();
-    } else if args.len() == 2 {
-        open_buf = Buffer::load_buf_from_filename(&args[1])?;
     } else {
-        println!("Error: Only 1 argument(file name) is supported");
-        close()?;
-        return Ok(());
+        // handle filename
+        if args[1].chars().nth(0).unwrap() != '-' {
+            open_buf = Buffer::load_buf_from_filename(&args[1])?;
+        } else {
+            open_buf = open_homepage();
+        }
+        // handle flags
+        args[1..].iter().for_each(|arg| {
+            if arg.chars().nth(0).unwrap() == '-' {
+                match arg.as_str() {
+                    "-V1" => {
+                        verbosity = 1;
+                    },
+                    "-V2" => {
+                        verbosity = 2;
+                    },
+                    _ => {
+                        let _ = close();
+                        panic!("unknown flag");
+                    }
+                }
+            }
+        });
     }
+
+    // Init logger
+    let _ = match verbosity {
+        0 => LOGGER.set(Logger {level: LogLevel::WARN}),
+        1 => LOGGER.set(Logger {level: LogLevel::INFO}),
+        2 => LOGGER.set(Logger {level: LogLevel::DEBUG}),
+        _ => {
+            close()?;
+            panic!("invalid verbosity");
+        }
+    };
 
     execute!(stdout(), Print(open_buf.gb.get_text()))?;
 

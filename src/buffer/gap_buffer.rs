@@ -212,11 +212,11 @@ impl GapBuffer {
         }
     }
 
-    fn get_row(&self) -> usize {
+    pub fn get_row(&self) -> usize {
         self.row
     }
 
-    fn get_col(&self) -> usize {
+    pub fn get_col(&self) -> usize {
         self.col
     }
 

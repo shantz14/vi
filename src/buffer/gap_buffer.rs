@@ -40,7 +40,8 @@ impl GapBuffer {
                 out.push(*c);
             }
         });
-        return out;
+
+        out
     }
 
     pub fn get_cursor_pos(&self) -> (usize, usize) {
@@ -90,7 +91,7 @@ impl GapBuffer {
 
     pub fn move_relative(&mut self, distance: i32) {
         if distance.is_negative() {
-            let usize_dist = (distance * -1) as usize;
+            let usize_dist = (-distance) as usize;
             if usize_dist > self.l {
                 return;
             }
@@ -165,7 +166,7 @@ impl GapBuffer {
     fn print(&self) {
         let mut cursor_found = false;
         for c in self.buf.iter() {
-            if *c == '\0' && cursor_found == false {
+            if *c == '\0' && !cursor_found {
                 print!("[CURSOR]");
                 cursor_found = true;
             }
@@ -184,7 +185,7 @@ impl GapBuffer {
 
     fn get_buf(&self) -> Vec<char> {
         let buf = self.buf.clone();
-        return buf;
+        buf
     }
 
     fn right(&mut self, cursor_pos: usize) {
@@ -242,7 +243,8 @@ impl GapBuffer {
             i -= 1;
             col += 1;
         }
-        return col;
+
+        col
     }
 
     fn on_first_line(&mut self) -> bool {

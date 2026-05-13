@@ -1,11 +1,8 @@
 use std::{env};
-use std::io::{self, stdout};
+use std::io::{self};
 use std::sync::OnceLock;
 
-use tokio;
-
-use crossterm::style::Print;
-use crossterm::{event::{self, read, Event, KeyCode, KeyEvent}, cursor, execute, terminal::{self, ClearType, Clear, enable_raw_mode, disable_raw_mode}};
+use crossterm::{event::{self, read, Event, KeyCode, KeyEvent}, cursor, execute, terminal::{self, enable_raw_mode, disable_raw_mode}};
 
 mod buffer;
 use crate::buffer::Buffer;
@@ -26,12 +23,12 @@ async fn main() -> io::Result<()> {
 
     let args: Vec<String> = env::args().collect();
     if args.len() == 1 {
-        let _ = LOGGER.set(Logger {level: LogLevel::WARN, tx: tx});
+        let _ = LOGGER.set(Logger {level: LogLevel::WARN, tx});
         open_buf = buffer::open_homepage();
     } else {
         // handle flags
         args[1..].iter().for_each(|arg| {
-            if arg.chars().nth(0).unwrap() == '-' {
+            if arg.chars().next().unwrap() == '-' {
                 match arg.as_str() {
                     "-V1" => {
                         verbosity = 1;
@@ -49,9 +46,9 @@ async fn main() -> io::Result<()> {
 
         // Init logger
         let _ = match verbosity {
-            0 => LOGGER.set(Logger {level: LogLevel::WARN, tx: tx}),
-            1 => LOGGER.set(Logger {level: LogLevel::INFO, tx: tx}),
-            2 => LOGGER.set(Logger {level: LogLevel::DEBUG, tx: tx}),
+            0 => LOGGER.set(Logger {level: LogLevel::WARN, tx}),
+            1 => LOGGER.set(Logger {level: LogLevel::INFO, tx}),
+            2 => LOGGER.set(Logger {level: LogLevel::DEBUG, tx}),
             _ => {
                 close()?;
                 panic!("invalid verbosity");
@@ -61,7 +58,7 @@ async fn main() -> io::Result<()> {
         tokio::spawn(init_logger(rx));
 
         // handle filename
-        if args[1].chars().nth(0).unwrap() != '-' {
+        if args[1].chars().next().unwrap() != '-' {
             open_buf = Buffer::load_buf_from_filename(&args[1])?;
         } else {
             open_buf = buffer::open_homepage();

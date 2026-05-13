@@ -207,7 +207,7 @@ pub fn open_homepage() -> Buffer {
     :e [filename] to open a new buffer
 
     ";
-    return Buffer {
+    Buffer {
         name: "homepage".to_string(),
         gb: GapBuffer::from_text(homepage),
         mode: Mode::N,

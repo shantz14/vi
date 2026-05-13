@@ -69,7 +69,7 @@ async fn main() -> io::Result<()> {
     }
 
 
-    execute!(stdout(), Print(open_buf.gb.get_text()))?;
+    open_buf.draw()?;
 
     loop {
         match read()? {
@@ -80,13 +80,7 @@ async fn main() -> io::Result<()> {
             _ => {}
         }
 
-        let (row, col) = open_buf.gb.get_cursor_pos();
-        execute!(stdout(),
-            Clear(ClearType::All),
-            cursor::MoveTo(0, 0),
-            Print(open_buf.gb.get_text()),
-            cursor::MoveTo(col.try_into().unwrap(), row.try_into().unwrap())
-        )?;
+        open_buf.draw()?;
     }
 }
 

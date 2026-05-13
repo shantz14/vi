@@ -1,8 +1,9 @@
 #![allow(non_snake_case)]
 
 mod gap_buffer;
-use std::{fs::{self, File}, io::{Error, ErrorKind}};
+use std::{fs::{self, File}, io::{Error, ErrorKind, stdout}};
 
+use crossterm::{cursor, execute, style::Print, terminal::{Clear, ClearType}};
 use crate::{buffer::gap_buffer::GapBuffer, log_debug, log_error, log_info};
 
 pub enum Mode { N = 0, I, V, C }
@@ -17,6 +18,18 @@ pub struct Buffer {
 }
 
 impl Buffer {
+    pub fn draw(&self) -> Result<(), Error>{
+        let (row, col) = self.gb.get_cursor_pos();
+        execute!(stdout(),
+            Clear(ClearType::All),
+            cursor::MoveTo(0, 0),
+            Print(self.gb.get_text()),
+            cursor::MoveTo(col.try_into().unwrap(), row.try_into().unwrap())
+        )?;
+
+        Ok(())
+    }
+
     pub fn load_buf_from_filename(filename: &str) -> Result<Buffer, Error> {
         match File::open(filename) {
             Ok(_file) => {

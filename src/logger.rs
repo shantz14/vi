@@ -15,29 +15,39 @@ pub enum LogLevel {
 }
 
 pub struct Logger {
-    pub level: LogLevel
+    pub level: LogLevel,
+    pub tx: tokio::sync::mpsc::Sender<String>,
+}
+
+pub async fn init_logger(mut rx: tokio::sync::mpsc::Receiver<String>) {
+    fs::create_dir_all("log").expect("failed to create log dir");
+
+    let mut file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .open("log/log.txt").expect("failed to open log file");
+
+    loop {
+        if let Some(log) = rx.recv().await {
+            if let Err(e) = writeln!(file, "{}", log) {
+                eprintln!("Writing to log file failed: {e}");
+            }
+        } else {
+            return;
+        }
+    }
 }
 
 pub fn log_internal(level: LogLevel, msg: Arguments) {
-    // TODO Uh lets just log to a file for now. No batching maybe background thread?
-
-    // i suppose background thread will do this once and not every time
-    // BECAUse opening the file and dir every log not really that cool
-    fs::create_dir_all("log").expect("failed to create log dir");
-
     let logger = LOGGER.get().expect("failed to get logger");
     if level >= logger.level {
-        let mut file = OpenOptions::new()
-            .append(true)
-            .create(true)
-            .open("log/log.txt").expect("failed to open log file");
-
         let now = Local::now();
         let timestamp = now.format("%H:%M:%S").to_string();
 
-        if let Err(e) = writeln!(file, "{} [{:?}] {}", timestamp, level, msg) {
-            eprintln!("Writing to log file failed: {e}");
-        }
+        let log = format!("{} [{:?}] {}", timestamp, level, msg); 
+
+        // Errors are ignored here i think
+        tokio::spawn(logger.tx.send(log));
     }
 }
 

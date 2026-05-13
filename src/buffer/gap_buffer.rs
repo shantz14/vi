@@ -161,6 +161,7 @@ impl GapBuffer {
         }
     }
 
+    #[allow(dead_code)]
     fn print(&self) {
         let mut cursor_found = false;
         for c in self.buf.iter() {
@@ -174,6 +175,7 @@ impl GapBuffer {
         }
     }
 
+    #[allow(dead_code)]
     fn print_debug(&self) {
         let buf = self.get_buf();
         println!("{:?}", buf);
@@ -359,6 +361,27 @@ impl GapBuffer {
 
     pub fn n_0(&mut self) {
         self.start_of_line();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn insert_updates_text() {
+        let mut gb = GapBuffer::from_text("");
+        gb.insert("hello");
+        assert_eq!(gb.get_text().trim_matches('\0'), "hello");
+    }
+
+    #[test]
+    fn cursor_position_after_newline() {
+        let mut gb = GapBuffer::from_text("");
+        gb.insert("foo\n");
+        gb.insert("bar");
+        assert_eq!(gb.get_row(), 1);
+        assert_eq!(gb.get_col(), 3);
     }
 }
 

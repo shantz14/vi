@@ -156,6 +156,13 @@ impl Buffer {
             "Escape" => {
                 self.mode = Mode::N;
             },
+            "e" | "edit" => {
+                if arg1.is_some() {
+                    
+                } else {
+
+                }
+            },
             _ => {
                 //nothin
             }

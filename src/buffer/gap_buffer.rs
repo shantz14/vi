@@ -2,7 +2,11 @@ use std::fs::{self};
 
 const GAP_SIZE: usize = 256;
 
-const WORD_DELIMS: &[char] = &['.', '(', ':', ','];
+enum CharClass {
+    Alpha,
+    Whitespace,
+    Symbol,
+}
 
 pub struct GapBuffer {
     l: usize,
@@ -309,7 +313,7 @@ impl GapBuffer {
     }
 
     pub fn n_w(&mut self) {
-
+        
     }
 
     pub fn n_b(&mut self) {
@@ -363,6 +367,16 @@ impl GapBuffer {
 
     pub fn n_0(&mut self) {
         self.start_of_line();
+    }
+
+    fn get_char_class(c: char) -> CharClass {
+        if c.is_alphanumeric() || c == '_' {
+            CharClass::Alpha
+        } else if c.is_whitespace() {
+            CharClass::Whitespace
+        } else {
+            CharClass::Symbol
+        }
     }
 }
 

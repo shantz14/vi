@@ -2,6 +2,7 @@ use std::fs::{self};
 
 const GAP_SIZE: usize = 256;
 
+#[derive(PartialEq, Eq)]
 enum CharClass {
     Alpha,
     Whitespace,
@@ -313,11 +314,52 @@ impl GapBuffer {
     }
 
     pub fn n_w(&mut self) {
-        
+        let class = self.curr_char_class();
+
+        if class == CharClass::Whitespace {
+            while self.curr_char_class() == CharClass::Whitespace {
+                if self.r == self.buf.len() { return };
+
+                self.move_relative(1);
+            }
+        } else {
+            let other_class = if class == CharClass::Alpha {CharClass::Symbol}
+                                    else {CharClass::Alpha};
+
+            let mut whitespace = false;
+            while self.curr_char_class() == other_class 
+                    || (whitespace && self.curr_char_class() == class){
+                if self.r == self.buf.len() { return };
+
+                if self.curr_char_class() == CharClass::Whitespace {
+                    whitespace = true;
+                }
+
+                self.move_relative(1);
+            }
+        }
     }
 
     pub fn n_b(&mut self) {
 
+    }
+
+    fn curr_char(&self) -> char {
+        self.buf[self.l-1]
+    }
+
+    fn curr_char_class(&self) -> CharClass {
+        self.get_char_class(self.curr_char())
+    }
+
+    fn get_char_class(&self, c: char) -> CharClass {
+        if c.is_alphanumeric() || c == '_' {
+            CharClass::Alpha
+        } else if c.is_whitespace() {
+            CharClass::Whitespace
+        } else {
+            CharClass::Symbol
+        }
     }
 
     pub fn n_W(&mut self) {
@@ -367,16 +409,6 @@ impl GapBuffer {
 
     pub fn n_0(&mut self) {
         self.start_of_line();
-    }
-
-    fn get_char_class(c: char) -> CharClass {
-        if c.is_alphanumeric() || c == '_' {
-            CharClass::Alpha
-        } else if c.is_whitespace() {
-            CharClass::Whitespace
-        } else {
-            CharClass::Symbol
-        }
     }
 }
 
